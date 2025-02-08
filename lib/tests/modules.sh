@@ -586,6 +586,9 @@ checkConfigOutput '^38|27$' options.submoduleLine38.declarationPositions.1.line 
 # nested options work
 checkConfigOutput '^34$' options.nested.nestedLine34.declarationPositions.0.line ./declaration-positions.nix
 
+# TODO where in this file should this line be?
+checkConfigOutput "^true$" config.result ./serializeConfig.nix
+
 
 cat <<EOF
 ====== module tests ======
