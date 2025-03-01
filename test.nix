@@ -15,12 +15,13 @@ let
     );
 
   toJSONLossy =
-      maybe:
+      path: maybe:
       let
         result = builtins.tryEval maybe;
         val = if result.success then result.value else "«error»";
       in
-      if lib.isDerivation val then
+      lib.trace path
+      (if lib.isDerivation val then
         "«derivation ${val.drvPath}»"
       else if lib.isFunction val then
         "«function»"
@@ -30,13 +31,13 @@ let
         else
           lib.pipe val [
             (lib.flip lib.removeAttrs ["assertions"])
-            (lib.mapAttrs (name: value: toJSONLossy value))
+            (lib.mapAttrs (name: value: toJSONLossy "${path}.${name}" value))
             builtins.toJSON
           ]
       else if lib.isList val then
-        map toJSONLossy val
+        map toJSONLossy "${path}[?]" val
       else
-        builtins.toJSON val;
+        builtins.toJSON val);
 
   nixos = nixosSystem {
     modules = [
@@ -44,5 +45,5 @@ let
     ];
   };
 
-  final = toJSONLossy nixos.config;
+  final = toJSONLossy "" nixos.config ;
 in assert final; null
