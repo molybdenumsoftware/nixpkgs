@@ -17,7 +17,7 @@ let
   toJSONLossy =
       maybe:
       let
-        result = builtins.tryEval maybe;
+        result = builtins.tryEval (builtins.removeAttrs maybe ["assertions"]);
         val = if result.success then result.value else "«error»";
       in
       if lib.isDerivation val then
