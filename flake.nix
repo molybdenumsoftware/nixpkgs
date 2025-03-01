@@ -18,8 +18,13 @@
     {
       test = let
         inherit (self) lib;
-        nixos = ;
-        result = false;
+        nixos = lib.nixosSystem {
+          modules = [
+            {nixpkgs.hostPlatform = { system = "aarch64-linux"; };}
+          ];
+        };
+        
+        result = false; 
       in assert result; null;
       /**
         `nixpkgs.lib` is a combination of the [Nixpkgs library](https://nixos.org/manual/nixpkgs/unstable/#id-1.4), and other attributes
