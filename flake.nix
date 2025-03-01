@@ -16,6 +16,11 @@
       });
     in
     {
+      test = let
+        inherit (self) lib;
+        nixos = ;
+        result = false;
+      in assert result; null;
       /**
         `nixpkgs.lib` is a combination of the [Nixpkgs library](https://nixos.org/manual/nixpkgs/unstable/#id-1.4), and other attributes
         that are _not_ part of the Nixpkgs library, but part of the Nixpkgs flake:
