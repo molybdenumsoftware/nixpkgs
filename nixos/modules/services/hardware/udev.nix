@@ -412,7 +412,7 @@ in
         name = "initrd-udev-rules";
         initrdBin = config.boot.initrd.systemd.contents."/bin".source;
         udevPackages = config.boot.initrd.services.udev.packages;
-        udevPath = config.boot.initrd.systemd.contents."/bin".source;
+        udevPath = (config.boot.initrd.systemd.contents."/bin" or throw "dotor").source;
         udev = config.boot.initrd.systemd.package;
         systemd = config.boot.initrd.systemd.package;
         binPackages = config.boot.initrd.services.udev.binPackages ++ [ config.boot.initrd.systemd.contents."/bin".source ];

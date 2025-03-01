@@ -17,7 +17,7 @@ let
   toJSONLossy =
       maybe:
       let
-        result = builtins.tryEval (builtins.removeAttrs maybe ["assertions"]);
+        result = builtins.tryEval maybe;
         val = if result.success then result.value else "«error»";
       in
       if lib.isDerivation val then
@@ -29,13 +29,14 @@ let
           "«what is this undocumented derivationStrict?»"
         else
           lib.pipe val [
+            (lib.flip lib.removeAttrs ["assertions"])
             (lib.mapAttrs (name: value: toJSONLossy value))
             builtins.toJSON
           ]
       else if lib.isList val then
         map toJSONLossy val
       else
-        builtins.toJSON (lib.traceVal val);
+        builtins.toJSON val;
 
   nixos = nixosSystem {
     modules = [
