@@ -1,6 +1,6 @@
 let
   lib = import ./lib;
-  nixosLib = import ./nixos/lib { inherit lib; };
+
   nixosSystem = args:
     import ./nixos/lib/eval-config.nix (
       {
@@ -28,11 +28,14 @@ let
         if val ? drvPath then
           "«what is this undocumented derivationStrict?»"
         else
-          lib.mapAttrs (name: value: toJSONLossy value) val
+          lib.pipe val [
+            (lib.mapAttrs (name: value: toJSONLossy value))
+            builtins.toJSON
+          ]
       else if lib.isList val then
         map toJSONLossy val
       else
-        builtins.toJSON (lib.trace_val val);
+        builtins.toJSON (lib.traceVal val);
 
   nixos = nixosSystem {
     modules = [
