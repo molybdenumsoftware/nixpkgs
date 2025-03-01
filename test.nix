@@ -35,7 +35,7 @@ let
             builtins.toJSON
           ]
       else if lib.isList val then
-        map toJSONLossy "${path}[?]" val
+        map (toJSONLossy "${path}[?]") val
       else
         builtins.toJSON val);
 
