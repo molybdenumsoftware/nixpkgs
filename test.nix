@@ -22,7 +22,13 @@ let
       in
       lib.trace path
       (if lib.isDerivation val then
-        "«derivation ${val.drvPath}»"
+        let
+          result = builtins.tryEval val.drvPath;
+        in
+          if result.success then
+            "«derivation ${val.drvPath}»"
+          else
+            "«error: failed to evaluate derivation»"
       else if lib.isFunction val then
         "«function»"
       else if lib.isAttrs val then
