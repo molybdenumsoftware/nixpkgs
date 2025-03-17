@@ -31,7 +31,9 @@ let
     if builtins.length path > 10 then "«infrec»" else
     (lib.trace (lib.concatStrings path)
       (
-        if lib.isFunction val then
+        if lib.isPath val then
+          "«path:${toString val}»"
+        else if lib.isFunction val then
           "«function»"
         else if lib.isAttrs val then
           let
