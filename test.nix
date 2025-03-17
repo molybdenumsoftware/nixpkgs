@@ -14,36 +14,48 @@ let
       } // builtins.removeAttrs args [ "modules" ]
     );
 
+  # EvalError
+  # Explicit throws
+  # assertions
+  # out of bounds
+  # missing attr
+  # infinite recursion (detects cycle by thunk  "black hole")
+  # stack overflow (arbitrary depth limit) (possibly configurable?)
+
   toJSONLossy =
       path: maybe:
       let
-        result = builtins.tryEval maybe;
+        result = builtins.catchEvalErrors maybe;
         val = if result.success then result.value else "«error»";
       in
       lib.trace path
-      (if lib.isDerivation val then
-        let
-          result = builtins.tryEval val.drvPath;
-        in
-          if result.success then
-            "«derivation ${val.drvPath}»"
+      (
+        #if (lib.length path) else
+        if lib.isDerivation val then
+          "«derivation»"
+          # let
+          #   result = builtins.tryEval val.drvPath;
+          # in
+          #   if result.success then
+          #     "«derivation ${val.drvPath}»"
+          #   else
+          #     "«error: failed to evaluate derivation»"
+        else if lib.isFunction val then
+          "«function»"
+        else if lib.isAttrs val then
+          if val ? drvPath then
+            "«what is this undocumented derivationStrict?»"
           else
-            "«error: failed to evaluate derivation»"
-      else if lib.isFunction val then
-        "«function»"
-      else if lib.isAttrs val then
-        if val ? drvPath then
-          "«what is this undocumented derivationStrict?»"
+            lib.pipe val [
+              (lib.flip lib.removeAttrs ["assertions"])
+              (lib.mapAttrs (name: value: toJSONLossy "${path}.${name}" value))
+              builtins.toJSON
+            ]
+        else if lib.isList val then
+          lib.imap0 (i: v: toJSONLossy "${path}[${toString i}]" v) val
         else
-          lib.pipe val [
-            (lib.flip lib.removeAttrs ["assertions"])
-            (lib.mapAttrs (name: value: toJSONLossy "${path}.${name}" value))
-            builtins.toJSON
-          ]
-      else if lib.isList val then
-        map (toJSONLossy "${path}[?]") val
-      else
-        builtins.toJSON val);
+          builtins.toJSON val
+      );
 
   nixos = nixosSystem {
     modules = [
