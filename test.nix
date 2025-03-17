@@ -15,20 +15,20 @@ let
     );
 
   # EvalError
-  # Explicit throws
-  # assertions
-  # out of bounds
-  # missing attr
-  # infinite recursion (detects cycle by thunk  "black hole")
-  # stack overflow (arbitrary depth limit) (possibly configurable?)
+  # [x] Explicit throws
+  # [x] assertions
+  # [x] out of bounds
+  # [x] missing attr
+  # [ ] infinite recursion (detects cycle by thunk  "black hole")
+  # [ ] stack overflow (arbitrary depth limit) (possibly configurable?)
 
-  toJSONLossy =
+  catchEvalDeep =
     path: maybe:
     let
       result = builtins.catchEvalErrors maybe;
       val = if result.success then result.value else "«error»";
     in
-    if builtins.length path > 10 then "«infrec»" else
+    if builtins.length path > 6 then "«infrec»" else
     (lib.trace (lib.concatStrings path)
       (
         if lib.isPath val then
@@ -50,17 +50,16 @@ let
           #     "«error: failed to evaluate derivation»"
           else if hasType && val ? drvPath then
             "«what is this undocumented derivationStrict?»"
+          else if val.__attrsFailEvaluation or false then
+            "«attrset with __attrsFailEvaluation»"
           else
-            lib.pipe val [
-              (lib.flip lib.removeAttrs [ "assertions" ])
-              (lib.mapAttrs (name: value: toJSONLossy (path ++ [ ".${name}" ]) value))
-              builtins.toJSON
-            ]
+            lib.mapAttrs (name: value: catchEvalDeep (path ++ [ ".${name}" ]) value) val
         else if lib.isList val then
-          lib.imap0 (i: v: toJSONLossy (path ++ [ "[${toString i}]" ]) v) val
+          lib.imap0 (i: v: catchEvalDeep (path ++ [ "[${toString i}]" ]) v) val
         else
-          builtins.toJSON val
+          val
       ));
+  # __attrsFailEvaluation
 
   nixos = nixosSystem {
     modules = [
@@ -68,6 +67,10 @@ let
     ];
   };
 
-  final = toJSONLossy [ ] nixos.config;
+  final = lib.pipe nixos.config [
+    (catchEvalDeep [])
+    builtins.toJSON
+  ]
+    ;
 in
 assert final; null
