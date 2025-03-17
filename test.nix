@@ -28,10 +28,11 @@ let
       result = builtins.catchEvalErrors maybe;
       val = if result.success then result.value else "«error»";
     in
-    if builtins.length path > 6 then "«infrec»" else
     (lib.trace (lib.concatStrings path)
       (
-        if lib.isPath val then
+        if lib.concatStrings path == ".virtualisation.vmVariant" then "TODO"
+        else if lib.concatStrings path == ".virtualisation.vmVariantWithBootLoader" then "TODO"
+        else if lib.isPath val then
           "«path:${toString val}»"
         else if lib.isFunction val then
           "«function»"
@@ -50,6 +51,8 @@ let
           #     "«error: failed to evaluate derivation»"
           else if hasType && val ? drvPath then
             "«what is this undocumented derivationStrict?»"
+          else if val._type or null == "pkgs" then
+            "«pkgs»"
           else if val.__attrsFailEvaluation or false then
             "«attrset with __attrsFailEvaluation»"
           else
@@ -68,9 +71,9 @@ let
   };
 
   final = lib.pipe nixos.config [
-    (catchEvalDeep [])
+    (catchEvalDeep [ ])
     builtins.toJSON
   ]
-    ;
+  ;
 in
 assert final; null
