@@ -10,12 +10,7 @@ let
         list = lib.map (mapRecursive f) x;
       }.${type} or x;
 
-  f = x: if (builtins.catchEvalErrors x).success then x else "<<error>>"; # TODO
-
-  safeDisplay = x:
-    if builtins.catchEvalErrors (display x).success then # TODO
-      display x else "<<error>>";
-
+  displayEvalError = x: if (builtins.catchEvalErrors x).success then x else "<<error>>"; # TODO
   display = val:
     if lib.isPath val then
       "«path:${toString val}»"
@@ -36,9 +31,24 @@ let
       else
         val
     else val;
+
+  nixosSystem = args:
+    import ./nixos/lib/eval-config.nix (
+      {
+        inherit lib;
+        # Allow system to be set modularly in nixpkgs.system.
+        # We set it to null, to remove the "legacy" entrypoint's
+        # non-hermetic default.
+        system = null;
+
+        modules = args.modules;
+      } // builtins.removeAttrs args [ "modules" ]
+    );
+
+  testValue = nixosSystem {
+    modules = [
+      { nixpkgs.hostPlatform.system = "aarch64-linux"; }
+    ];
+  };
 in
-mapRecursive f {
-  a = { aa = { aaa = { }; }; };
-  b = [ [ 1 ] [ [ 1 ] ] [ [ [ 1 ] ] ] ];
-  e = builtins.elemAt [ ] 1;
-}
+mapRecursive (lib.flip lib.pipe [displayEvalError display]) testValue

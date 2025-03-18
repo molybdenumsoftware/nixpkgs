@@ -1,18 +1,7 @@
 let
   lib = import ./lib;
 
-  nixosSystem = args:
-    import ./nixos/lib/eval-config.nix (
-      {
-        inherit lib;
-        # Allow system to be set modularly in nixpkgs.system.
-        # We set it to null, to remove the "legacy" entrypoint's
-        # non-hermetic default.
-        system = null;
 
-        modules = args.modules;
-      } // builtins.removeAttrs args [ "modules" ]
-    );
 
   # EvalError
   # [x] Explicit throws
@@ -63,17 +52,5 @@ let
           val
       ));
   # __attrsFailEvaluation
-
-  nixos = nixosSystem {
-    modules = [
-      { nixpkgs.hostPlatform = { system = "aarch64-linux"; }; }
-    ];
-  };
-
-  final = lib.pipe nixos.config [
-    (catchEvalDeep [ ])
-    builtins.toJSON
-  ]
-  ;
 in
-assert final; null
+catchEvalDeep [ ] nixos.config
