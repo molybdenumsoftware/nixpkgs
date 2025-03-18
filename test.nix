@@ -1,59 +1,103 @@
 let
-  lib = import ./lib;
+  inherit (import <nixpkgs> { }) lib;
 
+  nixosSystem =
+    args:
+    import ./nixos/lib/eval-config.nix (
+      {
+        inherit lib;
+        # Allow system to be set modularly in nixpkgs.system.
+        # We set it to null, to remove the "legacy" entrypoint's
+        # non-hermetic default.
+        system = null;
 
-
-  # EvalError
-  # [x] Explicit throws
-  # [x] assertions
-  # [x] out of bounds
-  # [x] missing attr
-  # [ ] infinite recursion (detects cycle by thunk  "black hole")
-  # [ ] stack overflow (arbitrary depth limit) (possibly configurable?)
-
-  catchEvalDeep =
-    path: maybe:
-    let
-      result = builtins.catchEvalErrors maybe;
-      val = if result.success then result.value else "«error»";
-    in
-    (
-      #lib.trace (lib.concatStrings path)
-      (
-        if lib.concatStrings path == ".virtualisation.vmVariant" then "TODO"
-        else if lib.concatStrings path == ".virtualisation.vmVariantWithBootLoader" then "TODO"
-        else if lib.isPath val then
-          "«path:${toString val}»"
-        else if lib.isFunction val then
-          "«function»"
-        else if lib.isAttrs val then
-          let
-            hasType = val ? type && (builtins.catchEvalErrors val.type).success;
-          in
-          if hasType && lib.isDerivation val then
-            "«derivation»"
-          # let
-          #   result = builtins.tryEval val.drvPath;
-          # in
-          #   if result.success then
-          #     "«derivation ${val.drvPath}»"
-          #   else
-          #     "«error: failed to evaluate derivation»"
-          else if hasType && val ? drvPath then
-            "«what is this undocumented derivationStrict?»"
-          else if val._type or null == "pkgs" then
-            "«pkgs»"
-          else if val.__attrsFailEvaluation or false then
-            "«attrset with __attrsFailEvaluation»"
-          else
-            lib.mapAttrs (name: value: catchEvalDeep (path ++ [ ".${name}" ]) value) val
-        else if lib.isList val then
-          lib.imap0 (i: v: catchEvalDeep (path ++ [ "[${toString i}]" ]) v) val
-        else
-          val
-      )
+        modules = args.modules;
+      }
+      // builtins.removeAttrs args [ "modules" ]
     );
-  # __attrsFailEvaluation
+
+  testValue =
+    (nixosSystem {
+      modules = [
+        { nixpkgs.hostPlatform.system = "aarch64-linux"; }
+      ];
+    }).config;
+
+  mapRecursive = mapRecursive_ [ ];
+
+  mapRecursive_ =
+    path: f: x_:
+    let
+      x = f path x_;
+    in
+    {
+      set = lib.mapAttrs (name: mapRecursive_ (path ++ [ name ]) f) x;
+      list = lib.imap0 (index: mapRecursive_ (path ++ [ index ]) f) x;
+    }
+    .${builtins.typeOf x} or x;
+
+  displayEvalError =
+    x:
+    let
+      result = (
+        # EvalError
+        # [x] Explicit throws
+        # [x] assertions
+        # [x] out of bounds
+        # [x] missing attr
+        # [ ] infinite recursion (detects cycle by thunk  "black hole")
+        # [ ] stack overflow (arbitrary depth limit) (possibly configurable?)
+        builtins.catchEvalErrors x
+      );
+    in
+    if result.success then result.value else "«error»";
+
+  display =
+    val:
+    if lib.isPath val then
+      "«path ${toString val}»"
+    else if lib.isFunction val then
+      "«function»"
+    else if lib.isDerivation val then
+      let
+        result = builtins.catchEvalErrors val.drvPath;
+      in
+      "«derivation ${if result.success then result.value else ""}»"
+    else
+      val;
+
+  omit =
+    path: x:
+    if
+      lib.any (x: x) [
+        (
+          # TODO
+          lib.elem path [
+            [
+              "virtualisation"
+              "vmVariant"
+            ]
+            [
+              "virtualisation"
+              "vmVariantWithBootLoader"
+            ]
+          ]
+        )
+        (x._type or null == "pkgs")
+        (x ? recurseForDerivations)
+      ]
+    then
+      "«omitted»"
+    else
+      x;
 in
-# catchEvalDeep [ ] nixos.config
-{ inherit catchEvalDeep; }
+mapRecursive (
+  path:
+  lib.trace path (
+    lib.flip lib.pipe [
+      displayEvalError
+      (omit path)
+      display
+    ]
+  )
+) testValue
