@@ -51,10 +51,19 @@ let
     ];
   };
 
-  omit = path: x: if lib.elem [
-    ["virtualisation" "vmVariant"]
-    ["virtualisation" "vmVariantWithBootLoader"]
-  ] path || x._type or null == "pkgs" then "«omitted TODO»" else x;
+  omit = path: x:
+    if lib.any (x: x)
+      [
+        (
+          # TODO
+          lib.elem path [
+            [ "virtualisation" "vmVariant" ]
+            [ "virtualisation" "vmVariantWithBootLoader" ]
+          ]
+        )
+        (x._type or null == "pkgs")
+        (x.recurseForDerivations or null != null)
+      ] then "«omitted»" else x;
 in
 mapRecursive
   [ ]
@@ -66,4 +75,4 @@ mapRecursive
     ]
     x
   ))
-  testValue
+  testValue.config
