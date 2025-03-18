@@ -1208,4 +1208,18 @@ in {
       assert (base >= 2);
       assert (i >= 0);
       lib.reverseList (go i);
+
+  mapRecursive =
+    let
+      mapRecursive_ =
+        path: f: x_:
+        let
+          x = f path x_;
+        in
+          {
+            set = lib.mapAttrs (name: mapRecursive_ (path ++ [ name ]) f) x;
+            list = lib.imap0 (index: mapRecursive_ (path ++ [ index ]) f) x;
+          }.${builtins.typeOf x} or x;
+    in
+      mapRecursive_ [ ];
 }

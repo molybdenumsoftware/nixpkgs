@@ -1,5 +1,5 @@
 let
-  inherit (import <nixpkgs> { }) lib;
+  lib = import ./lib;
 
   nixosSystem =
     args:
@@ -22,18 +22,6 @@ let
         { nixpkgs.hostPlatform.system = "aarch64-linux"; }
       ];
     }).config;
-
-  mapRecursive = mapRecursive_ [ ];
-
-  mapRecursive_ =
-    path: f: x_:
-    let
-      x = f path x_;
-    in
-      {
-        set = lib.mapAttrs (name: mapRecursive_ (path ++ [ name ]) f) x;
-        list = lib.imap0 (index: mapRecursive_ (path ++ [ index ]) f) x;
-      }.${builtins.typeOf x} or x;
 
   displayEvalError =
     x:
@@ -92,8 +80,8 @@ let
       x;
 in
 lib.flip lib.pipe [
-  (mapRecursive (_: displayEvalError))
-  (mapRecursive (omit))
-  (mapRecursive (_: display))
+  (lib.mapRecursive (_: displayEvalError))
+  (lib.mapRecursive omit)
+  (lib.mapRecursive (_: display))
 ]
   testValue
