@@ -51,6 +51,19 @@ let
     ];
   };
 
-  omit = x: x;
+  omit = path: x: if lib.elem [
+    ["virtualisation" "vmVariant"]
+    ["virtualisation" "vmVariantWithBootLoader"]
+  ] path || x._type or null == "pkgs" then "«omitted TODO»" else x;
 in
-mapRecursive [ ] (path: x: lib.trace path (lib.flip lib.pipe [ displayEvalError omit display ] x)) testValue
+mapRecursive
+  [ ]
+  (path: x: lib.trace path (lib.flip lib.pipe
+    [
+      displayEvalError
+      (omit path)
+      display
+    ]
+    x
+  ))
+  testValue
