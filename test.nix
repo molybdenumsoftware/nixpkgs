@@ -69,7 +69,7 @@ let
   omit =
     path: x:
     if
-      lib.any (x: x) [
+      lib.any lib.id [
         (
           # TODO
           lib.elem path [
