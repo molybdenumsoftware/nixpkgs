@@ -1,15 +1,43 @@
-{
-  nixos,
-  # list representing a nixos option path (e.g. ['console' 'enable']), or a
+{ nixos
+, # list representing a nixos option path (e.g. ['console' 'enable']), or a
   # prefix of such a path (e.g. ['console']), or a string representing the same
   # (e.g. 'console.enable')
-  path,
-  # whether to recurse down the config attrset and show each set value instead
-  recursive,
+  path
+, # whether to recurse down the config attrset and show each set value instead
+  recursive
+,
 }:
 
 let
   inherit (nixos.pkgs) lib;
+  inherit (nixos) options;
+  config = mapRecursive [ ] (path: config: omit path (safe config)) nixos.config;
+
+  safe = x: if (builtins.catchEvalErrors x).success then x else "[1;31m«error»[m";
+
+  omit = path: x:
+    if lib.any (x: x)
+      [
+        (
+          # TODO
+          lib.elem path [
+            [ "virtualisation" "vmVariant" ]
+            [ "virtualisation" "vmVariantWithBootLoader" ]
+          ]
+        )
+        (x._type or null == "pkgs")
+        # (x ? recurseForDerivations)
+      ] then "[1;31m«omitted»[m" else x;
+
+  mapRecursive = path: f: x_:
+    let
+      x = f path x_;
+      type = builtins.typeOf x;
+    in
+      {
+        set = lib.mapAttrs (name: mapRecursive (path ++ [ name ]) f) x;
+        list = lib.imap0 (index: mapRecursive (path ++ [ index ]) f) x;
+      }.${type} or x;
 
   path' = if lib.isString path then (if path == "" then [ ] else readOption path) else path;
 
@@ -101,12 +129,6 @@ let
     lib.foldl into root path;
 
   toPretty = lib.generators.toPretty { multiline = true; };
-  safeToPretty =
-    x:
-    let
-      e = builtins.tryEval (toPretty x);
-    in
-    if e.success then e.value else "[1;31m«error»[m";
 
   indent = str: lib.concatStringsSep "\n" (map (x: "  " + x) (lib.splitString "\n" str));
 
@@ -148,20 +170,19 @@ let
   renderRecursive =
     config:
     let
-      renderShort = n: v: "${lib.showOption (path' ++ n)} = ${safeToPretty v};";
+      renderShort = n: v: "${lib.showOption (path' ++ n)} = ${toPretty v};";
       mapAttrsRecursive' = safeMapAttrsRecursiveCond (x: !lib.isDerivation x);
     in
     if lib.isAttrs config then
       lib.concatStringsSep "\n" (lib.collect lib.isString (mapAttrsRecursive' renderShort config))
     else
       renderShort [ ] config;
-
 in
-if !lib.hasAttrByPath path' nixos.config then
+if !lib.hasAttrByPath path' config then
   throw "Couldn't resolve config path '${lib.showOption path'}'"
 else
   let
-    optionEntry = optionByPath path' nixos.options;
-    configEntry = lib.attrByPath path' null nixos.config;
+    optionEntry = optionByPath path' options;
+    configEntry = lib.attrByPath path' null config;
   in
   if recursive then renderRecursive configEntry else renderFull optionEntry configEntry

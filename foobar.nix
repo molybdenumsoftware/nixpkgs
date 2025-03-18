@@ -1,37 +1,5 @@
 let inherit (import <nixpkgs> { }) lib; in
 let
-  mapRecursive = path: f: x_:
-    let
-      x = f path x_;
-      type = builtins.typeOf x;
-    in
-      {
-        set = lib.mapAttrs (name: mapRecursive (path ++ [ name ]) f) x;
-        list = lib.imap0 (index: mapRecursive (path ++ [ index ]) f) x;
-      }.${type} or x;
-
-  displayEvalError = x: if (builtins.catchEvalErrors x).success then x else "<<error>>"; # TODO
-  display = val:
-    if lib.isPath val then
-      "«path:${toString val}»"
-    else if lib.isFunction val then
-      "«function»"
-    else if lib.isAttrs val then
-      let
-        hasType = val ? type && (builtins.catchEvalErrors val.type).success;
-      in
-      if hasType && lib.isDerivation val then
-        "«derivation»"
-      else if hasType && val ? drvPath then
-        "«what is this undocumented derivationStrict?»"
-      #else if val._type or null == "pkgs" then
-      #  "«pkgs»"
-      else if val.__attrsFailEvaluation or false then
-        "«attrset with __attrsFailEvaluation»"
-      else
-        val
-    else val;
-
   nixosSystem = args:
     import ./nixos/lib/eval-config.nix (
       {
@@ -51,6 +19,39 @@ let
     ];
   };
 
+  mapRecursive = mapRecursive_ [ ];
+
+  mapRecursive_ = path: f: x_:
+    let
+      x = f path x_;
+      type = builtins.typeOf x;
+    in
+      {
+        set = lib.mapAttrs (name: mapRecursive_ (path ++ [ name ]) f) x;
+        list = lib.imap0 (index: mapRecursive_ (path ++ [ index ]) f) x;
+      }.${type} or x;
+
+  safe = e: x: if (builtins.catchEvalErrors x).success then x else e;
+
+  display = val:
+    if lib.isPath val then
+      "«path:${toString val}»"
+    else if lib.isFunction val then
+      "«function»"
+    else if lib.isAttrs val then
+      let
+        hasType = val ? type && (builtins.catchEvalErrors val.type).success;
+      in
+      if hasType && lib.isDerivation val then
+        "«derivation»"
+      else if hasType && val ? drvPath then
+        "«what is this undocumented derivationStrict?»"
+      else if val.__attrsFailEvaluation or false then
+        "«attrset with __attrsFailEvaluation»"
+      else
+        val
+    else val;
+
   omit = path: x:
     if lib.any (x: x)
       [
@@ -62,17 +63,23 @@ let
           ]
         )
         (x._type or null == "pkgs")
-        (x.recurseForDerivations or null != null)
+        (x ? recurseForDerivations)
       ] then "«omitted»" else x;
+
+  safeConfig =
+    mapRecursive (path: lib.flip lib.pipe [ (safe "[1;31m«error»[m") (omit path) ]);
+
+  main =
+    mapRecursive
+      (path: lib.trace path (lib.flip lib.pipe
+        [
+          displayEvalError
+          (omit path)
+          display
+        ]
+      ))
+      testValue.config;
 in
-mapRecursive
-  [ ]
-  (path: x: lib.trace path (lib.flip lib.pipe
-    [
-      displayEvalError
-      (omit path)
-      display
-    ]
-    x
-  ))
-  testValue.config
+{
+  inherit safeConfig main;
+}

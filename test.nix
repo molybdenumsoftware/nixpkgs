@@ -17,7 +17,8 @@ let
       result = builtins.catchEvalErrors maybe;
       val = if result.success then result.value else "«error»";
     in
-    (lib.trace (lib.concatStrings path)
+    (
+      #lib.trace (lib.concatStrings path)
       (
         if lib.concatStrings path == ".virtualisation.vmVariant" then "TODO"
         else if lib.concatStrings path == ".virtualisation.vmVariantWithBootLoader" then "TODO"
@@ -50,7 +51,9 @@ let
           lib.imap0 (i: v: catchEvalDeep (path ++ [ "[${toString i}]" ]) v) val
         else
           val
-      ));
+      )
+    );
   # __attrsFailEvaluation
 in
-catchEvalDeep [ ] nixos.config
+# catchEvalDeep [ ] nixos.config
+{ inherit catchEvalDeep; }
