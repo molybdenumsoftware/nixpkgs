@@ -30,13 +30,11 @@ let
     path: f: x_:
     let
       x = f path x_;
-      type = builtins.typeOf x;
     in
-    {
-      set = lib.mapAttrs (name: mapRecursive_ (path ++ [ name ]) f) x;
-      list = lib.imap0 (index: mapRecursive_ (path ++ [ index ]) f) x;
-    }
-    .${type} or x;
+      {
+        set = lib.mapAttrs (name: mapRecursive_ (path ++ [ name ]) f) x;
+        list = lib.imap0 (index: mapRecursive_ (path ++ [ index ]) f) x;
+      }.${builtins.typeOf x} or x;
 
   displayEvalError =
     x:
@@ -62,15 +60,10 @@ let
       "«function»"
     else if lib.isAttrs val then
       let
-        result = builtins.catchEvalErrors val.type;
-        type = result.value;
+        hasType = val ? type && (builtins.catchEvalErrors val.type).success;
       in
       if hasType && lib.isDerivation val then
         "«derivation»"
-      else if hasType && val ? drvPath then
-        "«what is this undocumented derivationStrict?»"
-      else if val.__attrsFailEvaluation or false then
-        "«attrset with __attrsFailEvaluation»"
       else
         val
     else
@@ -101,13 +94,15 @@ let
     else
       x;
 in
-mapRecursive (
-  path:
-  lib.trace path (
-    lib.flip lib.pipe [
-      displayEvalError
-      (omit path)
-      display
-    ]
+mapRecursive
+  (
+    path:
+    lib.trace path (
+      lib.flip lib.pipe [
+        displayEvalError
+        (omit path)
+        display
+      ]
+    )
   )
-) testValue
+  testValue
