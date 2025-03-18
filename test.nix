@@ -57,7 +57,7 @@ let
       "«path ${toString val}»"
     else if lib.isFunction val then
       "«function»"
-    else if (builtins.catchEvalErrors val.type).success && lib.isDerivation val then
+    else if lib.isDerivation val then
       let
         #result = builtins.catchEvalErrors val.drvPath; TODO
         result = { success = false; };
@@ -91,15 +91,9 @@ let
     else
       x;
 in
-mapRecursive
-  (
-    path:
-    lib.trace path (
-      lib.flip lib.pipe [
-        displayEvalError
-        (omit path)
-        display
-      ]
-    )
-  )
+lib.flip lib.pipe [
+  (mapRecursive (_: displayEvalError))
+  (mapRecursive (omit))
+  (mapRecursive (_: display))
+]
   testValue
