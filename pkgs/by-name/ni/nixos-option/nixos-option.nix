@@ -16,7 +16,7 @@ let
   safe = x: if (builtins.catchEvalErrors x).success then x else "[1;31m«error»[m";
 
   omit = path: x:
-    if lib.any (x: x)
+    if lib.any lib.id
       [
         (
           # TODO
@@ -25,8 +25,14 @@ let
             [ "virtualisation" "vmVariantWithBootLoader" ]
           ]
         )
-        (x._type or null == "pkgs")
-        # (x ? recurseForDerivations)
+        (
+          # dont recurse into `pkgs`
+          x._type or null == "pkgs"
+        )
+        (
+          # dont recurse into *package sets* that may be pulled individually into `config`
+          x ? recurseForDerivations
+        )
       ] then "[1;31m«omitted»[m" else x;
 
   mapRecursive = path: f: x_:
@@ -37,7 +43,7 @@ let
       {
         set = lib.mapAttrs (name: mapRecursive (path ++ [ name ]) f) x;
         list = lib.imap0 (index: mapRecursive (path ++ [ index ]) f) x;
-      }.${type} or x;
+      }.${type} or (builtins.deepSeq x x);
 
   path' = if lib.isString path then (if path == "" then [ ] else readOption path) else path;
 
@@ -91,24 +97,6 @@ let
     flatMapSlices (lib.hasPrefix "\"") (lib.hasSuffix "\"") (x: [ (unescapeNixString x) ]) (
       lib.splitString "." str
     );
-
-  # like 'mapAttrsRecursiveCond' but handling errors in the attrset tree as leaf
-  # nodes (which means `f` is expected to handle shallow errors)
-  safeMapAttrsRecursiveCond =
-    cond: f: set:
-    let
-      recurse =
-        path:
-        lib.mapAttrs (
-          name: value:
-          let
-            e = builtins.tryEval value;
-            path' = path ++ [ name ];
-          in
-          if e.success && lib.isAttrs value && cond value then recurse path' value else f path' value
-        );
-    in
-    recurse [ ] set;
 
   # traverse the option tree along `path` from `root`, returning the option or
   # attrset at the given location
@@ -171,7 +159,7 @@ let
     config:
     let
       renderShort = n: v: "${lib.showOption (path' ++ n)} = ${toPretty v};";
-      mapAttrsRecursive' = safeMapAttrsRecursiveCond (x: !lib.isDerivation x);
+      mapAttrsRecursive' = lib.mapAttrsRecursiveCond (x: !lib.isDerivation x);
     in
     if lib.isAttrs config then
       lib.concatStringsSep "\n" (lib.collect lib.isString (mapAttrsRecursive' renderShort config))
