@@ -30,11 +30,10 @@ let
     let
       x = f path x_;
     in
-    {
-      set = lib.mapAttrs (name: mapRecursive_ (path ++ [ name ]) f) x;
-      list = lib.imap0 (index: mapRecursive_ (path ++ [ index ]) f) x;
-    }
-    .${builtins.typeOf x} or x;
+      {
+        set = lib.mapAttrs (name: mapRecursive_ (path ++ [ name ]) f) x;
+        list = lib.imap0 (index: mapRecursive_ (path ++ [ index ]) f) x;
+      }.${builtins.typeOf x} or x;
 
   displayEvalError =
     x:
@@ -58,11 +57,12 @@ let
       "«path ${toString val}»"
     else if lib.isFunction val then
       "«function»"
-    else if lib.isDerivation val then
+    else if (builtins.catchEvalErrors val.type).success && lib.isDerivation val then
       let
-        result = builtins.catchEvalErrors val.drvPath;
+        #result = builtins.catchEvalErrors val.drvPath; TODO
+        result = { success = false; };
       in
-      "«derivation ${if result.success then result.value else ""}»"
+      "«derivation ${if result.success then result.value else "error"}»"
     else
       val;
 
@@ -91,13 +91,15 @@ let
     else
       x;
 in
-mapRecursive (
-  path:
-  lib.trace path (
-    lib.flip lib.pipe [
-      displayEvalError
-      (omit path)
-      display
-    ]
+mapRecursive
+  (
+    path:
+    lib.trace path (
+      lib.flip lib.pipe [
+        displayEvalError
+        (omit path)
+        display
+      ]
+    )
   )
-) testValue
+  testValue
