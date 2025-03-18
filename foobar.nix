@@ -1,6 +1,9 @@
-let inherit (import <nixpkgs> { }) lib; in
 let
-  nixosSystem = args:
+  inherit (import <nixpkgs> { }) lib;
+in
+let
+  nixosSystem =
+    args:
     import ./nixos/lib/eval-config.nix (
       {
         inherit lib;
@@ -10,37 +13,57 @@ let
         system = null;
 
         modules = args.modules;
-      } // builtins.removeAttrs args [ "modules" ]
+      }
+      // builtins.removeAttrs args [ "modules" ]
     );
 
-  testValue = nixosSystem {
-    modules = [
-      { nixpkgs.hostPlatform.system = "aarch64-linux"; }
-    ];
-  };
+  testValue =
+    (nixosSystem {
+      modules = [
+        { nixpkgs.hostPlatform.system = "aarch64-linux"; }
+      ];
+    }).config;
 
   mapRecursive = mapRecursive_ [ ];
 
-  mapRecursive_ = path: f: x_:
+  mapRecursive_ =
+    path: f: x_:
     let
       x = f path x_;
       type = builtins.typeOf x;
     in
-      {
-        set = lib.mapAttrs (name: mapRecursive_ (path ++ [ name ]) f) x;
-        list = lib.imap0 (index: mapRecursive_ (path ++ [ index ]) f) x;
-      }.${type} or x;
+    {
+      set = lib.mapAttrs (name: mapRecursive_ (path ++ [ name ]) f) x;
+      list = lib.imap0 (index: mapRecursive_ (path ++ [ index ]) f) x;
+    }
+    .${type} or x;
 
-  safe = e: x: if (builtins.catchEvalErrors x).success then x else e;
+  displayEvalError =
+    x:
+    let
+      result = (
+        # EvalError
+        # [x] Explicit throws
+        # [x] assertions
+        # [x] out of bounds
+        # [x] missing attr
+        # [ ] infinite recursion (detects cycle by thunk  "black hole")
+        # [ ] stack overflow (arbitrary depth limit) (possibly configurable?)
+        builtins.catchEvalErrors x
+      );
+    in
+    if result.success then result.value else "«error»";
 
-  display = val:
+  display =
+    val:
     if lib.isPath val then
-      "«path:${toString val}»"
+      "«path ${toString val}»"
     else if lib.isFunction val then
       "«function»"
     else if lib.isAttrs val then
       let
-        hasType = val ? type && (builtins.catchEvalErrors val.type).success;
+        result = builtins.catchEvalErrors val.type;
+        type = result.value;
       in
       if hasType && lib.isDerivation val then
         "«derivation»"
@@ -50,36 +73,41 @@ let
         "«attrset with __attrsFailEvaluation»"
       else
         val
-    else val;
+    else
+      val;
 
-  omit = path: x:
-    if lib.any (x: x)
-      [
+  omit =
+    path: x:
+    if
+      lib.any (x: x) [
         (
           # TODO
           lib.elem path [
-            [ "virtualisation" "vmVariant" ]
-            [ "virtualisation" "vmVariantWithBootLoader" ]
+            [
+              "virtualisation"
+              "vmVariant"
+            ]
+            [
+              "virtualisation"
+              "vmVariantWithBootLoader"
+            ]
           ]
         )
         (x._type or null == "pkgs")
         (x ? recurseForDerivations)
-      ] then "«omitted»" else x;
-
-  safeConfig =
-    mapRecursive (path: lib.flip lib.pipe [ (safe "[1;31m«error»[m") (omit path) ]);
-
-  main =
-    mapRecursive
-      (path: lib.trace path (lib.flip lib.pipe
-        [
-          displayEvalError
-          (omit path)
-          display
-        ]
-      ))
-      testValue.config;
+      ]
+    then
+      "«omitted»"
+    else
+      x;
 in
-{
-  inherit safeConfig main;
-}
+mapRecursive (
+  path:
+  lib.trace path (
+    lib.flip lib.pipe [
+      displayEvalError
+      (omit path)
+      display
+    ]
+  )
+) testValue
