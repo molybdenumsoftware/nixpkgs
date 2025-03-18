@@ -1,13 +1,13 @@
 let inherit (import <nixpkgs> { }) lib; in
 let
-  mapRecursive = f: x_:
+  mapRecursive = path: f: x_:
     let
-      x = f x_;
+      x = f path x_;
       type = builtins.typeOf x;
     in
       {
-        set = lib.mapAttrs (_: mapRecursive f) x;
-        list = lib.map (mapRecursive f) x;
+        set = lib.mapAttrs (name: mapRecursive (path ++ [ name ]) f) x;
+        list = lib.imap0 (index: mapRecursive (path ++ [ index ]) f) x;
       }.${type} or x;
 
   displayEvalError = x: if (builtins.catchEvalErrors x).success then x else "<<error>>"; # TODO
@@ -50,5 +50,7 @@ let
       { nixpkgs.hostPlatform.system = "aarch64-linux"; }
     ];
   };
+
+  omit = x: x;
 in
-mapRecursive (lib.flip lib.pipe [displayEvalError display]) testValue
+mapRecursive [ ] (path: x: lib.trace path (lib.flip lib.pipe [ displayEvalError omit display ] x)) testValue
