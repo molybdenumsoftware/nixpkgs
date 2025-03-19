@@ -5,7 +5,6 @@ let
     args:
     import ./nixos/lib/eval-config.nix (
       {
-        inherit lib;
         # Allow system to be set modularly in nixpkgs.system.
         # We set it to null, to remove the "legacy" entrypoint's
         # non-hermetic default.
@@ -23,22 +22,6 @@ let
       ];
     }).config;
 
-  displayEvalError =
-    x:
-    let
-      result = (
-        # EvalError
-        # [x] Explicit throws
-        # [x] assertions
-        # [x] out of bounds
-        # [x] missing attr
-        # [ ] infinite recursion (detects cycle by thunk  "black hole")
-        # [ ] stack overflow (arbitrary depth limit) (possibly configurable?)
-        builtins.catchEvalErrors x
-      );
-    in
-    if result.success then result.value else "«error»";
-
   display =
     val:
     if lib.isPath val then
@@ -48,9 +31,11 @@ let
     else if lib.isDerivation val then
       let
         #result = builtins.catchEvalErrors val.drvPath; TODO
-        result = { success = false; };
+        result = {
+          success = false;
+        };
       in
-      "«derivation ${if result.success then result.value else "error"}»"
+      "«derivation ${if result.success then result.value else "evaluation error"}»"
     else
       val;
 
@@ -78,10 +63,20 @@ let
       "«omitted»"
     else
       x;
+
+  catchAndDisplayRecursive =
+    x:
+    lib.flip lib.pipe [
+      (lib.trivial.mapRecursiveTopDown (
+        _: x:
+        let
+          result = builtins.catchEvalErrors x;
+        in
+        if result.success then result.value else "«evaluation error»"
+      ))
+      (lib.trivial.mapRecursiveTopDown omit)
+      (lib.trivial.mapRecursiveTopDown (_: display))
+    ];
+
 in
-lib.flip lib.pipe [
-  (lib.mapRecursive (_: displayEvalError))
-  (lib.mapRecursive omit)
-  (lib.mapRecursive (_: display))
-]
-  testValue
+catchAndDisplayRecursive testValue

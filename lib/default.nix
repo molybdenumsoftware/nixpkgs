@@ -77,7 +77,7 @@ let
       mod compare splitByAndCompare seq deepSeq lessThan add sub
       functionArgs setFunctionArgs isFunction toFunction mirrorFunctionArgs
       fromHexString toHexString toBaseDigits inPureEvalMode isBool isInt pathExists
-      genericClosure readFile mapRecursive;
+      genericClosure readFile;
     inherit (self.fixedPoints) fix fix' converge extends composeExtensions
       composeManyExtensions makeExtensible makeExtensibleWithCustomName
       toExtension;
