@@ -480,8 +480,8 @@ rec {
 
   catchAndDisplayRecursive =
     let
-    omit =
-      path: x:
+      omit =
+        path: x:
         if
           lib.any lib.id [
             (
@@ -511,28 +511,26 @@ rec {
           "«path ${toString val}»"
         else if lib.isFunction val then
           "«function»"
-        else if lib.isDerivation val then
+        else if val ? type && (builtins.catchEvalErrors val.type).success && lib.isDerivation val then
           let
-            #result = builtins.catchEvalErrors val.drvPath; TODO
-            result = {
-              success = false;
-            };
+            result = builtins.catchEvalErrors val.drvPath;
           in
           "«derivation ${if result.success then result.value else "evaluation error"}»"
         else
           val;
     in
-    x:
-    lib.pipe x [
-      # TODO do not recurse into derivations
-      (lib.trivial.mapRecursiveTopDown (
-        _: x:
-        let
-          result = builtins.catchEvalErrors x;
-        in
-        if result.success then result.value else "«evaluation error»"
-      ))
-      (lib.trivial.mapRecursiveTopDown omit)
-      (lib.trivial.mapRecursiveTopDown (_: display))
-    ];
+    lib.trivial.mapRecursiveTopDown (
+      path:
+      lib.flip lib.pipe [
+        (
+          v:
+          let
+            result = builtins.catchEvalErrors v;
+          in
+          if result.success then result.value else "«evaluation error»"
+        )
+        (omit path)
+        display
+      ]
+    );
 }
