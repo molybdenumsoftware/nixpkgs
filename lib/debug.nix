@@ -513,9 +513,9 @@ rec {
           "«function»"
         else if val ? type && (builtins.catchEvalErrors val.type).success && lib.isDerivation val then
           let
-            result = builtins.catchEvalErrors val.drvPath;
+            result = builtins.catchEvalErrors val.name;
           in
-          "«derivation ${if result.success then result.value else "evaluation error"}»"
+          "«derivation ${if result.success then result.value else "(name evaluation failed)"}»"
         else
           val;
     in
