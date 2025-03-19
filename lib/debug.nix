@@ -524,6 +524,7 @@ rec {
     in
     x:
     lib.pipe x [
+      # TODO do not recurse into derivations
       (lib.trivial.mapRecursiveTopDown (
         _: x:
         let
