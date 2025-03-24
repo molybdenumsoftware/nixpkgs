@@ -13,7 +13,7 @@ let
   inherit (nixos) options;
   config = mapRecursive [ ] (path: config: omit path (safe config)) nixos.config;
 
-  safe = x: if (builtins.catchEvalErrors x).success then x else "[1;31m«error»[m";
+  safe = x: if (builtins.catchEvalError x).success then x else "[1;31m«error»[m";
 
   omit = path: x:
     if lib.any lib.id

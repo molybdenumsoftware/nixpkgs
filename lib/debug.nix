@@ -511,9 +511,9 @@ rec {
           "«path ${toString val}»"
         else if lib.isFunction val then
           "«function»"
-        else if val ? type && (builtins.catchEvalErrors val.type).success && lib.isDerivation val then
+        else if val ? type && (builtins.catchEvalError val.type).success && lib.isDerivation val then
           let
-            result = builtins.catchEvalErrors val.name;
+            result = builtins.catchEvalError val.name;
           in
           "«derivation ${if result.success then result.value else "(name evaluation failed)"}»"
         else
@@ -525,7 +525,7 @@ rec {
         (
           v:
           let
-            result = builtins.catchEvalErrors v;
+            result = builtins.catchEvalError v;
           in
           if result.success then result.value else "«evaluation error»"
         )
